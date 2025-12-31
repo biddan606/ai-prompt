@@ -9,7 +9,7 @@
 - 실행 오류 원인을 빠르게 추론
 
 **지원 언어:**
-JavaScript/TypeScript, Python, Java, Go, Rust, Ruby
+JavaScript/TypeScript, Python, Java, Go, Rust, Ruby, C#, PHP, Kotlin, Swift
 
 **행동 방식:**
 - 설정 파일을 신뢰하되, 코드와 불일치하면 코드를 우선
@@ -170,25 +170,35 @@ ls -la | grep -iE "\.env|environment" 2>/dev/null
 
 ### 2-2. 환경 변수 목록 추출
 
+**1차: 환경 변수 파일에서 추출**
 ```bash
-# .env.example 내용 확인
+# .env.example 내용 확인 (언어 무관)
 cat .env.example 2>/dev/null || cat .env.sample 2>/dev/null || cat .env.template 2>/dev/null
 ```
 
-**언어별 환경 변수 접근 패턴:**
+**2차: 코드에서 환경 변수 접근 패턴 검색**
+
+`01-project-overview.md`의 언어 정보를 참조하여 적절한 패턴 선택:
 
 | 언어 | 패턴 | 검색 명령어 |
 |------|------|-------------|
-| JavaScript/TypeScript | `process.env.X` | `grep -r "process\.env\." --include="*.ts" --include="*.js" ./src 2>/dev/null \| head -20` |
-| Python | `os.environ["X"]`, `os.getenv("X")` | `grep -r "os\.environ\|os\.getenv" --include="*.py" . 2>/dev/null \| head -20` |
-| Java | `System.getenv("X")` | `grep -r "System\.getenv" --include="*.java" ./src 2>/dev/null \| head -20` |
-| Go | `os.Getenv("X")` | `grep -r "os\.Getenv" --include="*.go" . 2>/dev/null \| head -20` |
-| Rust | `std::env::var("X")`, `env::var("X")` | `grep -r "env::var" --include="*.rs" ./src 2>/dev/null \| head -20` |
-| Ruby | `ENV["X"]` | `grep -r "ENV\[" --include="*.rb" . 2>/dev/null \| head -20` |
+| JavaScript/TypeScript | `process.env.X` | `grep -rE "process\.env\.[A-Z_]+" --include="*.ts" --include="*.js" ./src` |
+| Python | `os.environ`, `os.getenv` | `grep -rE "os\.(environ|getenv)" --include="*.py" .` |
+| Java | `System.getenv` | `grep -rE "System\.getenv" --include="*.java" ./src` |
+| Go | `os.Getenv` | `grep -rE "os\.Getenv" --include="*.go" .` |
+| Rust | `std::env::var`, `env::var` | `grep -rE "env::var" --include="*.rs" ./src` |
+| Ruby | `ENV["X"]`, `ENV.fetch` | `grep -rE "ENV\[|ENV\.fetch" --include="*.rb" .` |
+| C# | `Environment.GetEnvironmentVariable` | `grep -rE "Environment\.GetEnvironmentVariable" --include="*.cs" ./src` |
+| PHP | `getenv`, `$_ENV` | `grep -rE "getenv\|\\$_ENV" --include="*.php" .` |
+| Kotlin | `System.getenv` | `grep -rE "System\.getenv" --include="*.kt" ./src` |
+| Swift | `ProcessInfo.processInfo.environment` | `grep -rE "ProcessInfo.*environment" --include="*.swift" .` |
 
-**실행:**
-- 0단계에서 파악한 `언어`에 해당하는 명령어 실행
-- 여러 언어가 혼재된 경우 모두 실행
+**3차: 위 표에 없는 언어인 경우**
+```bash
+# 일반적인 환경 변수 키워드로 검색
+grep -ri "env\|environment\|config" --include="*.[주요확장자]" ./src 2>/dev/null | head -30
+```
+→ 검색 결과에서 환경 변수 접근 패턴을 직접 파악하여 기록
 
 ### 2-3. 환경 변수 분류
 
@@ -300,6 +310,11 @@ ls -d dist build out target .next .nuxt bin release 2>/dev/null
 | | 관례적 | `bin` | `go build -o bin/` 사용 시 |
 | **Rust** | Cargo | `target/debug`, `target/release` | `--release` 플래그에 따라 다름 |
 | **Ruby** | Rails | 빌드 없음 (인터프리터) | assets은 `public/assets` |
+| **C#** | .NET | `bin/Debug`, `bin/Release` | |
+| **PHP** | 일반 | 빌드 없음 (인터프리터) | |
+| | Laravel Mix | `public/js`, `public/css` | assets 빌드 시 |
+| **Kotlin** | Gradle | `build` | |
+| **Swift** | SPM | `.build` | |
 
 **빌드 출력 경로 확인 방법:**
 - 위 목록에 없는 경우:
@@ -355,6 +370,12 @@ cat package.json | jq '.scripts.dev // .scripts.start // .scripts["start:dev"]' 
 | | Rocket | `cargo run` | 8000 |
 | **Ruby** | Rails | `rails server` 또는 `bin/rails s` | 3000 |
 | | Sinatra | `ruby app.rb` | 4567 |
+| **C#** | ASP.NET Core | `dotnet run` | 5000 |
+| **PHP** | Laravel | `php artisan serve` | 8000 |
+| | Symfony | `symfony server:start` | 8000 |
+| **Kotlin** | Ktor | `./gradlew run` | 8080 |
+| | Spring Boot | `./gradlew bootRun` | 8080 |
+| **Swift** | Vapor | `swift run` | 8080 |
 
 **포트 확인 방법:**
 - 위 기본 포트는 참고용. 실제 포트는 코드나 설정에서 확인 필요
