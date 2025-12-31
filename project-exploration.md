@@ -332,7 +332,63 @@ ls -la | grep -E "config|\.json|\.yaml|\.yml|\.toml" | head -20
 
 ## 5단계: 진입점(Entry Point) 식별
 
-### 5-1. 애플리케이션 시작점 찾기
+### 5-0. 프로젝트 유형 판단
+
+진입점 식별 전, 프로젝트 유형을 먼저 판단합니다.
+
+**판단 기준:**
+| 유형 | 판단 근거 |
+|------|-----------|
+| 애플리케이션 | `main` 함수/파일 존재, 실행 스크립트(`start`, `serve`) 존재, Dockerfile 존재 |
+| 라이브러리/SDK | package.json의 `main`/`exports` 필드, 공개 API 문서 존재, npm/pypi 배포 설정 |
+| 프레임워크 | 플러그인/미들웨어 시스템 존재, 생명주기 훅 제공, 확장 포인트 문서화 |
+| CLI 도구 | `bin` 필드 존재, argument parser 사용, `--help` 옵션 구현 |
+
+```bash
+# 애플리케이션 지표 (공통)
+ls Dockerfile docker-compose.yml 2>/dev/null
+
+# 애플리케이션 지표 (언어별)
+cat package.json 2>/dev/null | jq '.scripts.start // .scripts.serve'  # Node.js
+grep -l "if __name__.*__main__" *.py 2>/dev/null | head -3            # Python
+ls cmd/*/main.go 2>/dev/null                                           # Go
+grep -l "fn main" src/main.rs 2>/dev/null                              # Rust
+
+# 라이브러리 지표 (언어별)
+cat package.json 2>/dev/null | jq '.main // .exports // .module'       # Node.js
+cat pyproject.toml 2>/dev/null | grep -A5 "\[project\]"                # Python
+cat Cargo.toml 2>/dev/null | grep -E "^\[lib\]"                        # Rust
+cat go.mod 2>/dev/null && ls -d pkg/ 2>/dev/null                       # Go
+
+# CLI 지표 (언어별)
+cat package.json 2>/dev/null | jq '.bin'                               # Node.js
+grep -r "argparse\|click\|typer" --include="*.py" . 2>/dev/null | head -3  # Python
+grep -r "cobra\|urfave/cli" --include="*.go" . 2>/dev/null | head -3   # Go
+grep -r "clap\|structopt" --include="*.toml" . 2>/dev/null | head -3   # Rust
+```
+
+### 5-1. 유형별 진입점 식별
+
+**애플리케이션:**
+- 시작점: `main` 함수, 서버 시작 파일
+- 목표: "이 파일을 실행하면 앱이 시작된다"
+
+**라이브러리/SDK:**
+- 시작점: 공개 API export 파일 (`index.ts`, `lib.rs`, `__init__.py`)
+- 목표: "이 파일에서 사용자가 import할 수 있는 API가 정의된다"
+- 추가 파악: 주요 공개 함수/클래스 목록
+
+**프레임워크:**
+- 시작점: 앱 생성 함수/클래스, 설정 진입점
+- 목표: "사용자가 이 함수/클래스로 프레임워크를 초기화한다"
+- 추가 파악: 생명주기 훅, 확장 포인트
+
+**CLI 도구:**
+- 시작점: 명령어 정의 파일, bin 진입점
+- 목표: "이 파일이 CLI 명령어를 처리한다"
+- 추가 파악: 서브커맨드 구조
+
+### 5-2. 애플리케이션 시작점 찾기
 
 **언어별 일반적인 진입점:**
 
@@ -360,7 +416,7 @@ grep -r "def main\|func main\|public static void main\|fn main" --include="*.py"
 - package.json이 없는 경우: 언어별 일반적인 진입점 파일 직접 탐색
 - 진입점을 찾지 못한 경우: "[진입점 확인 필요]"로 기록, 라이브러리일 가능성 명시
 
-### 5-2. 설정/부트스트랩 파일 찾기
+### 5-3. 설정/부트스트랩 파일 찾기
 ```bash
 # 설정 관련 파일
 find ./src -name "*config*" -o -name "*bootstrap*" -o -name "*setup*" 2>/dev/null | head -10
@@ -371,7 +427,7 @@ find ./src -name "*config*" -o -name "*bootstrap*" -o -name "*setup*" 2>/dev/nul
 - 의존성 주입 설정 위치
 - 환경별 설정 파일
 
-### 5-3. 라우팅/모듈 등록 위치 (웹 애플리케이션인 경우)
+### 5-4. 라우팅/모듈 등록 위치 (웹 애플리케이션인 경우)
 ```bash
 # 라우터 파일 찾기
 find . -name "*route*" -o -name "*router*" -o -name "*controller*" 2>/dev/null | grep -v node_modules | head -10
@@ -482,6 +538,7 @@ mkdir -p ./exploration-notes
 | 프레임워크 | | | |
 | 런타임 | | | |
 | 빌드 도구 | | | |
+| 테스트 프레임워크 | | | |
 
 ### 문법적 특징
 
@@ -537,12 +594,22 @@ mkdir -p ./exploration-notes
 
 ## 5. 진입점 (Entry Points)
 
+### 프로젝트 유형
+- **유형**: [애플리케이션 / 라이브러리 / 프레임워크 / CLI 도구]
+- **판단 근거**: [근거]
+
 ### 메인 시작점
 
 | 용도 | 파일 | 설명 |
 |------|------|------|
-| 애플리케이션 시작 | `[경로]` | [설명] |
-| 개발 서버 | `[경로/명령어]` | [설명] |
+| [유형에 따라: 애플리케이션 시작 / 공개 API 정의 / CLI 진입점] | `[경로]` | [설명] |
+
+<!-- 
+유형별 작성 가이드:
+- 애플리케이션: "애플리케이션 시작", "개발 서버" 행
+- 라이브러리/프레임워크: "공개 API 정의", "타입 정의" 행
+- CLI: "CLI 진입점", "서브커맨드 정의" 행
+-->
 
 ### 초기화 흐름
 ```
@@ -580,7 +647,7 @@ mkdir -p ./exploration-notes
 
 | 우선순위 | 분석 | 이유 |
 |----------|------|------|
-| 1 | [변경 이력 분석 / 실행 환경 분석 / 의존성 분석] | [이유] |
+| 1 | [테스트 분석 / 실행 환경 분석 / 탐구 계획] | [이유] |
 | 2 | [다음 분석] | [이유] |
 | 3 | [다음 분석] | [이유] |
 
@@ -642,17 +709,16 @@ mkdir -p ./exploration-notes
 | # | 문서 | 상태 | 최종 수정 |
 |---|------|------|-----------|
 | 01 | [프로젝트 개요](./01-project-overview.md) | ✅ 완료 | [날짜] |
-| 02 | 변경 이력 분석 | ⬜ 미시작 | - |
-| 03 | 의존성 분석 | ⬜ 미시작 | - |
-| 04 | 테스트 분석 | ⬜ 미시작 | - |
-| 05 | 실행 환경 분석 | ⬜ 미시작 | - |
-| 06 | 탐구 계획 | ⬜ 미시작 | - |
-| 07 | 핵심 흐름 분석 | ⬜ 미시작 | - |
-| 08 | 세부 모듈 분석 | ⬜ 미시작 | - |
+| 02 | [테스트 분석](./02-test-analysis.md) | ⬜ 미시작 | - |
+| 03 | [실행 환경 분석](./03-execution-environment.md) | ⬜ 미시작 | - |
+| 04 | [탐구 계획](./04-exploration-plan.md) | ⬜ 미시작 | - |
+| 05 | [핵심 흐름 분석](./05-core-flow-[흐름명].md) | ⬜ 미시작 | - |
+| 06 | [세부 모듈 분석](./06-module-[모듈명].md) | ⬜ 미시작 | - |
 
 ## 빠른 요약
 
 - **프로젝트**: [이름]
+- **유형**: [애플리케이션 / 라이브러리 / 프레임워크 / CLI 도구 / 기타]
 - **기술 스택**: [주요 기술]
 - **시작점**: `[진입점 파일]`
 ```
@@ -671,9 +737,10 @@ mkdir -p ./exploration-notes
 3. Git 이력 분석 (Git 저장소인 경우) — 코어 파일 파악
 4. 패키지 설정 파일 확인 (package.json 등)
 5. 디렉토리 구조 파악 (tree -L 2) — Git 코어 정보 참고
-6. 진입점 파일 확인 — Git 코어 정보 참고
-7. /exploration-notes/01-project-overview.md 생성
-8. /exploration-notes/00-index.md 생성/업데이트
-9. 다음 단계 추천
+6. 프로젝트 유형 판단 — 애플리케이션/라이브러리/프레임워크/CLI 판별
+7. 진입점 파일 확인 — 유형에 맞는 진입점 식별
+8. /exploration-notes/01-project-overview.md 생성
+9. /exploration-notes/00-index.md 생성/업데이트
+10. 다음 단계 추천
 ```
 </examples>
