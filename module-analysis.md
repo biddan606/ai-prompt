@@ -95,29 +95,42 @@
 
 ---
 
-## 공통: 언어 감지 및 명령 조정
+## 공통: 언어 정보 참조
 
-분석 시작 전 프로젝트 주 언어를 확인하고, 이후 명령어를 조정합니다.
-
+`01-project-overview.md`의 "언어 분석 정보" 섹션에서 분석 패턴을 참조합니다.
 ```bash
-# 주요 파일 확장자 확인
-find . -type f -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.cs" -o -name "*.php" -o -name "*.kt" -o -name "*.swift" 2>/dev/null | grep -v node_modules | head -10
+# 언어 정보 확인
+grep -A 10 "### 언어 분석 정보" ./exploration-notes/01-project-overview.md
 ```
 
-| 언어 | 함수 선언 패턴 | import 패턴 | 클래스/모듈 패턴 |
-|------|---------------|-------------|------------------|
-| TypeScript/JS | `function `, `const .* =`, `=>` | `^import ` | `class `, `module.exports` |
-| Python | `def `, `async def ` | `^import \|^from ` | `class ` |
-| Java | `public\|private\|protected .* \(` | `^import ` | `class `, `interface ` |
-| Go | `func ` | `^import` | `type .* struct` |
-| Rust | `fn `, `pub fn ` | `^use ` | `struct `, `impl ` |
-| Ruby | `def ` | `^require\|^require_relative` | `class `, `module ` |
-| C# | `public\|private\|protected .* \(` | `^using ` | `class `, `interface ` |
-| PHP | `function ` | `^use \|^require\|^include` | `class ` |
-| Kotlin | `fun ` | `^import ` | `class `, `object ` |
-| Swift | `func ` | `^import ` | `class `, `struct ` |
+**참조 항목:**
+| 항목 | 활용 목적 |
+|------|----------|
+| `주_언어` | 프로젝트의 주 프로그래밍 언어 |
+| `함수_선언_패턴` | 함수 정의 찾기 |
+| `import_패턴` | 의존성 분석 |
+| `공개_API_패턴` | 공개/비공개 구분 |
 
-**이후 절차에서 `[언어에 맞게]` 표시된 명령어는 위 표를 참조하여 조정합니다.**
+**예외 처리 (언어 정보가 없는 경우):**
+```bash
+# Fallback: 직접 언어 감지
+find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" \) 2>/dev/null | grep -v node_modules | head -10
+```
+
+| 언어 | 함수 선언 패턴 | import 패턴 | 공개 API 식별 |
+|------|---------------|-------------|---------------|
+| TypeScript/JS | `function `, `const .* =`, `=>` | `^import ` | `export` |
+| Python | `def `, `async def ` | `^import \|^from ` | `__all__` 또는 `_` 없는 이름 |
+| Java | `public\|private\|protected .* \(` | `^import ` | `public` |
+| Go | `func ` | `^import` | 대문자 시작 |
+| Rust | `fn `, `pub fn ` | `^use ` | `pub` |
+| Ruby | `def ` | `^require` | 기본 public |
+| C# | `public\|private .* \(` | `^using ` | `public` |
+| PHP | `function ` | `^use \|require` | `public` |
+| Kotlin | `fun ` | `^import ` | 기본 public |
+| Swift | `func ` | `^import ` | `public`, `open` |
+
+이후 절차에서 `[언어에 맞게]` 표시된 명령어는 참조된 패턴을 적용합니다.
 
 ---
 
@@ -146,11 +159,19 @@ find . -type f -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o
 - `{{모듈_경로}}`: 분석할 모듈 디렉토리/파일
 - `{{모듈_역할}}`: 예상 역할 (탐구 계획에서)
 - `{{관련_흐름}}`: 이 모듈이 참여하는 핵심 흐름 (없으면 "없음")
+- `{{탐구_전략}}`: 성숙도 기반 분석 접근법 (신규)
+- `{{프로젝트_유형}}`: 애플리케이션/라이브러리/프레임워크/CLI (신규)
 
 ```bash
 cat ./exploration-notes/04-exploration-plan.md 2>/dev/null
 cat ./exploration-notes/01-project-overview.md 2>/dev/null
 ls ./exploration-notes/05-core-flow-*.md 2>/dev/null
+
+# 탐구 전략 확인 (신규)
+grep -A 10 "### 탐구 전략" ./exploration-notes/01-project-overview.md
+
+# 프로젝트 유형 확인 (신규)
+grep -A 10 "### 프로젝트 유형" ./exploration-notes/01-project-overview.md
 ```
 
 ### 0-1. 모듈 선정 기준
@@ -163,6 +184,53 @@ ls ./exploration-notes/05-core-flow-*.md 2>/dev/null
 **예외 처리:**
 - 탐구 계획 없음 → "분석할 모듈 경로를 지정해주세요" 안내
 - 모듈 경로 없음 → 사용자에게 확인 요청
+
+### 0-2. 탐구 전략에 따른 분석 깊이 조정 (신규)
+
+`01-project-overview.md`의 성숙도 정보를 참조하여 분석 상세도를 조정합니다.
+
+| 성숙도 | 공개 API 분석 | 내부 구현 분석 |
+|--------|--------------|---------------|
+| 높음 | 시그니처 + 간단 예시 | 핵심만 요약 |
+| 중간 | 시그니처 + 상세 예시 | 주요 로직 설명 |
+| 낮음 | 시그니처 + 상세 예시 + 엣지케이스 | 상세 코드 스니펫 포함 |
+
+### 0-3. 프로젝트 유형에 따른 모듈 분석 초점 (신규)
+
+| 프로젝트 유형 | 모듈 분석 초점 | 주요 문서화 대상 |
+|--------------|---------------|-----------------|
+| 애플리케이션 | 책임과 의존성 | 입출력, 부수효과 |
+| 라이브러리 | 공개 API와 사용법 | 시그니처, 사용 예시, 옵션 |
+| 프레임워크 | 확장 포인트 | 훅, 미들웨어 인터페이스 |
+| CLI 도구 | 커맨드 인터페이스 | 옵션, 인자, 출력 형식 |
+
+### 0-4. 관련 흐름 문서에서 컨텍스트 추출 (신규)
+
+관련 흐름 문서(`05-core-flow-*.md`)가 있는 경우, 이 모듈에 대한 사전 정보를 추출합니다.
+```bash
+# 이 모듈이 언급된 흐름 문서 찾기
+grep -l "{{모듈명}}\|{{모듈_경로}}" ./exploration-notes/05-core-flow-*.md 2>/dev/null
+
+# 관련 부분 추출
+grep -B 5 -A 15 "{{모듈명}}\|{{모듈_경로}}" ./exploration-notes/05-core-flow-*.md 2>/dev/null
+```
+
+**추출할 정보:**
+
+| 항목 | 설명 |
+|------|------|
+| 흐름 내 위치 | 이 모듈이 흐름의 몇 번째 단계에서 호출되는지 |
+| 호출 컨텍스트 | 어떤 입력을 받고 어떤 출력을 반환하는지 |
+| 관련 의문점 | 흐름 문서에서 제기된 이 모듈 관련 의문점 |
+| 추천 분석 포인트 | "후속 모듈 분석 제안" 섹션의 권장사항 |
+
+**활용:**
+- 분석 시 흐름에서 호출된 함수/클래스에 우선 집중
+- 흐름 문서의 의문점 해결 여부를 이 문서에 기록
+- "관련 문서" 섹션에 해당 흐름 문서 링크 추가
+
+**예외 처리:**
+- 관련 흐름 문서 없음 → 이 단계 생략, 독립적으로 분석 진행
 
 ---
 
@@ -292,6 +360,46 @@ grep -A 20 "[클래스/모듈 패턴] {{타입명}}" {{파일_경로}}
 | 시그니처 | 파라미터와 반환 타입 |
 | 설명 | 역할 한 줄 설명 |
 | 사용 예시 | 간단한 호출 예시 |
+
+### 2-3. CLI 도구 특화 분석 (프로젝트 유형이 CLI인 경우)
+
+프로젝트 유형이 CLI 도구인 경우, "공개 API" 대신 "커맨드 인터페이스"를 분석합니다.
+
+**서브커맨드 구조 분석:**
+```bash
+# 커맨드 디렉토리 구조
+ls ./src/commands/ 2>/dev/null || ls ./cmd/ 2>/dev/null || ls ./commands/ 2>/dev/null
+
+# 각 커맨드 파일 확인
+find . -path "*/commands/*" -name "*.[확장자]" 2>/dev/null | head -20
+
+# 커맨드 등록 부분 찾기
+grep -r "addCommand\|register\|\.command(" --include="*.[확장자]" ./src | head -20
+```
+
+**각 커맨드에서 파악할 내용:**
+| 항목 | 설명 | 찾기 패턴 |
+|------|------|----------|
+| 커맨드명 | 실행 시 사용하는 이름 | `.command('name')\|@command\|name:` |
+| 설명 | 커맨드 용도 | `.description(\|help =\|"""` |
+| 옵션 | `--flag` 형태 | `.option(\|add_argument\|@option` |
+| 인자 | 위치 기반 인자 | `.argument(\|positional\|<arg>` |
+| 핸들러 | 실행 함수 | `.action(\|def \|func \|fn ` |
+
+**옵션 상세 파악:**
+```bash
+# 옵션 정의 추출
+grep -A 5 "\.option\|add_argument\|@option\|#\[arg\]" [커맨드_파일] | head -30
+```
+
+| 옵션 속성 | 설명 |
+|----------|------|
+| 이름 | `--option-name` |
+| 단축 | `-o` |
+| 타입 | string/number/boolean |
+| 필수 여부 | required/optional |
+| 기본값 | default value |
+| 설명 | help text |
 
 ---
 
@@ -506,6 +614,73 @@ mkdir -p ./exploration-notes
 
 ---
 
+<!-- CLI 도구인 경우 위 "공개 API" 섹션 대신 아래 사용 -->
+
+### 3. 커맨드 인터페이스 (CLI 도구용)
+
+#### 글로벌 옵션
+
+모든 커맨드에 적용되는 옵션:
+
+| 옵션 | 단축 | 설명 | 기본값 |
+|------|------|------|--------|
+| `--help` | `-h` | 도움말 표시 | - |
+| `--version` | `-V` | 버전 표시 | - |
+| `--[옵션]` | `-[x]` | [설명] | [기본값] |
+
+---
+
+#### `[커맨드명]`
+
+**용도**: [이 커맨드가 하는 일]
+
+**위치**: `[파일 경로]`
+
+**사용법:**
+```bash
+[프로그램] [커맨드] [옵션] [인자]
+```
+
+**옵션:**
+| 옵션 | 단축 | 타입 | 설명 | 필수 | 기본값 |
+|------|------|------|------|------|--------|
+| `--[옵션]` | `-[x]` | [타입] | [설명] | ✅/⬜ | [기본값] |
+
+**인자:**
+| 인자 | 타입 | 설명 | 필수 |
+|------|------|------|------|
+| `[인자명]` | [타입] | [설명] | ✅/⬜ |
+
+**예시:**
+```bash
+# 기본 사용
+[프로그램] [커맨드] [인자]
+
+# 옵션 사용
+[프로그램] [커맨드] --[옵션]=[값] [인자]
+
+# 복합 사용
+[프로그램] [커맨드] -[단축1] --[옵션2]=[값] [인자1] [인자2]
+```
+
+**출력:**
+```
+[예상 출력 형식]
+```
+
+**종료 코드:**
+| 코드 | 의미 |
+|------|------|
+| 0 | 성공 |
+| 1 | [에러 상황] |
+
+---
+
+#### `[다른 커맨드]`
+...
+
+---
+
 ### 4. 내부 구현
 
 #### 핵심 로직
@@ -649,7 +824,7 @@ mkdir -p ./exploration-notes
 
 ### 언어별 조정 참조
 
-분석 시 "공통: 언어 감지 및 명령 조정" 섹션의 표를 참조하여 명령어를 조정합니다.
+분석 시 "공통: 언어 정보 참조" 섹션의 표를 참조하여 명령어를 조정합니다.
 
 **추가 언어별 진입점:**
 | 언어 | 진입점 파일 | 공개 API 식별 |
