@@ -77,13 +77,26 @@
 </context>
 
 <language_detection>
-# 공통: 언어 감지 및 명령 조정
+# 공통: 언어 정보 참조
 
-분석 시작 전 프로젝트 주 언어를 확인하고, 이후 명령어를 조정합니다.
-
+`01-project-overview.md`의 "언어 분석 정보" 섹션에서 분석 패턴을 참조합니다.
 ```bash
-# 주요 파일 확장자 확인
-find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.cs" -o -name "*.php" -o -name "*.kt" -o -name "*.swift" \) 2>/dev/null | grep -v node_modules | head -10
+# 언어 정보 확인
+grep -A 10 "### 언어 분석 정보" ./exploration-notes/01-project-overview.md
+```
+
+**참조 항목:**
+| 항목 | 활용 목적 |
+|------|----------|
+| `주_언어` | 프로젝트의 주 프로그래밍 언어 |
+| `함수_선언_패턴` | 함수 정의 찾기 |
+| `import_패턴` | 의존성 분석 |
+| `공개_API_패턴` | 공개/비공개 구분 |
+
+**예외 처리 (언어 정보가 없는 경우):**
+```bash
+# Fallback: 직접 언어 감지
+find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" \) 2>/dev/null | grep -v node_modules | head -10
 ```
 
 | 언어 | 함수 선언 패턴 | import 패턴 | 클래스/모듈 패턴 |
@@ -99,7 +112,7 @@ find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java"
 | Kotlin | `fun ` | `^import ` | `class `, `object ` |
 | Swift | `func ` | `^import ` | `class `, `struct ` |
 
-**이후 절차에서 `[언어에 맞게]` 표시된 명령어는 위 표를 참조하여 조정합니다.**
+이후 절차에서 `[언어에 맞게]` 표시된 명령어는 참조된 패턴을 적용합니다.
 </language_detection>
 
 <procedure>
@@ -113,13 +126,21 @@ find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java"
 - `시작_지점`: 각 흐름의 진입점
 - `핵심_질문`: 이 분석에서 답할 질문
 - `주_언어`: 프로젝트의 주요 프로그래밍 언어
+- `탐구_전략`: 성숙도 기반 분석 접근법
+- `프로젝트_유형`: 애플리케이션/라이브러리/프레임워크/CLI
 
 ```bash
 cat ./exploration-notes/04-exploration-plan.md 2>/dev/null
 cat ./exploration-notes/01-project-overview.md 2>/dev/null
 
-# 언어 감지
-find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.cs" -o -name "*.php" -o -name "*.kt" -o -name "*.swift" \) 2>/dev/null | grep -v node_modules | head -10
+# 탐구 전략 확인
+grep -A 10 "### 탐구 전략" ./exploration-notes/01-project-overview.md
+
+# 프로젝트 유형 확인
+grep -A 10 "### 프로젝트 유형" ./exploration-notes/01-project-overview.md
+
+# 언어 정보 확인
+grep -A 10 "### 언어 분석 정보" ./exploration-notes/01-project-overview.md
 ```
 
 ### 0-1. 흐름 선정 기준
@@ -132,6 +153,33 @@ find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java"
 **예외 처리:**
 - 탐구 계획 없음 → "먼저 04-exploration-plan.md를 생성해주세요" 안내
 - 사용자가 특정 흐름 지정 → 해당 흐름 분석
+
+### 0-2. 탐구 전략에 따른 분석 깊이 조정
+
+`01-project-overview.md`의 성숙도 정보를 참조하여 분석 상세도를 조정합니다.
+
+| 성숙도 | 문서 신뢰도 | 분석 접근 |
+|--------|------------|----------|
+| 높음 | 높음 | README/문서에서 흐름 개요 확인 → 코드로 검증 |
+| 중간 | 중간 | 문서 참고하되 코드 중심 분석 |
+| 낮음 | 낮음 | 코드 직접 추적, 문서는 참고만 |
+
+**성숙도별 스니펫 포함 기준:**
+
+| 성숙도 | 스니펫 상세도 | 설명 |
+|--------|--------------|------|
+| 높음 | 핵심만 (5-10줄) | 공식 문서 링크 제공, 코드는 검증용 |
+| 중간 | 중간 (10-15줄) | 주요 로직 포함 |
+| 낮음 | 상세 (15-20줄) | 주석 포함, 맥락 설명 추가 |
+
+### 0-3. 프로젝트 유형에 따른 흐름 분석 초점
+
+| 프로젝트 유형 | 흐름 분석 초점 | 주요 추적 대상 |
+|--------------|---------------|---------------|
+| 애플리케이션 | 비즈니스 로직 흐름 | 요청 → 처리 → 응답 |
+| 라이브러리 | 공개 API 호출 흐름 | 사용자 호출 → 내부 처리 → 반환 |
+| 프레임워크 | 생명주기 흐름 | 초기화 → 설정 → 실행 → 종료 |
+| CLI 도구 | 커맨드 실행 흐름 | 파싱 → 라우팅 → 실행 → 출력 |
 
 ---
 
@@ -158,7 +206,79 @@ cat [진입점_파일_경로]
 | 스케줄 | 크론 잡, 배치 | `@Cron()`, `setInterval()` |
 | 함수 호출 | 라이브러리 | 공개 API 함수 |
 
-### 1-3. 입력 데이터 구조 파악
+### 1-3. CLI 도구 특화 분석 (프로젝트 유형이 CLI인 경우)
+
+프로젝트 유형이 CLI 도구인 경우, 추가 분석을 수행합니다.
+
+**커맨드 구조 파악:**
+```bash
+# 커맨드 정의 찾기 (언어별)
+
+# Node.js (commander, yargs, oclif):
+grep -r "\.command(\|\.option(\|yargs\." --include="*.ts" --include="*.js" ./src | head -20
+
+# Python (click, argparse, typer):
+grep -r "@click\|add_argument\|@app.command\|typer\." --include="*.py" . | head -20
+
+# Go (cobra, urfave/cli):
+grep -r "cobra.Command\|&cli.Command\|RootCmd" --include="*.go" . | head -20
+
+# Rust (clap, structopt):
+grep -r "#\[command\|#\[arg\|App::new\|Command::new" --include="*.rs" ./src | head -20
+```
+
+**CLI 흐름 추적 대상:**
+
+| 분석 항목 | 설명 | 추적 방법 |
+|----------|------|----------|
+| 진입점 → 커맨드 파싱 | main에서 argument parser까지 | main 함수 → parser 초기화 |
+| 커맨드 라우팅 | 서브커맨드 분기 로직 | switch/match 문 또는 커맨드 맵 |
+| 커맨드 실행 | 실제 비즈니스 로직 | 각 커맨드의 핸들러 함수 |
+| 출력 처리 | 결과 포맷팅 | stdout/stderr 출력 부분 |
+
+**CLI 흐름 다이어그램 템플릿:**
+```
+[사용자 입력: cli command --option value]
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ 1. 진입점 (main)                     │
+│    파일: [bin/cli.ts]                │
+│    역할: 프로그램 시작               │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ 2. 커맨드 파서                       │
+│    파일: [src/parser.ts]             │
+│    역할: 인자/옵션 파싱              │
+└─────────────────────────────────────┘
+    │
+    ├── command1 ──▶ [handler1]
+    ├── command2 ──▶ [handler2]
+    └── --help ────▶ [helpHandler]
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ 3. 커맨드 핸들러                     │
+│    파일: [src/commands/]             │
+│    역할: 비즈니스 로직 실행          │
+└─────────────────────────────────────┘
+    │
+    ▼
+[출력: stdout/stderr]
+```
+
+**출력에 포함할 CLI 특화 내용:**
+| 항목 | 설명 |
+|------|------|
+| 지원 커맨드 목록 | 모든 서브커맨드와 간단 설명 |
+| 글로벌 옵션 | 모든 커맨드에 적용되는 옵션 |
+| 커맨드별 옵션 | 각 서브커맨드의 옵션 |
+| 출력 형식 | JSON/텍스트/테이블 등 |
+| 종료 코드 | 성공/실패 시 exit code |
+
+### 1-4. 입력 데이터 구조 파악
 ```bash
 # [언어에 맞게] 타입 정의 찾기
 # TypeScript/JS:
@@ -570,7 +690,23 @@ mkdir -p ./exploration-notes
 
 ---
 
-### 8. 관련 코드 위치 요약
+### 8. 후속 모듈 분석 제안
+
+이 흐름 분석에서 발견된 추가 분석이 필요한 모듈:
+
+| 모듈 | 경로 | 분석 필요 이유 | 우선순위 |
+|------|------|---------------|---------|
+| [모듈명] | `[경로]` | [이유 - 예: 이 흐름에서 핵심 역할 담당] | 높음/중간/낮음 |
+| [모듈명] | `[경로]` | [이유 - 예: 복잡한 분기 로직 포함] | 높음/중간/낮음 |
+
+**`06-module-*.md` 작성 시 참고사항:**
+- **[모듈 A]**: 이 흐름의 [N]단계에서 `[함수명]`이 호출됨. 해당 함수 중심 분석 권장.
+- **[모듈 B]**: [조건]에서 분기 처리 담당. 분기 로직 상세 분석 필요.
+- **[모듈 C]**: 데이터 변환 담당. 입출력 타입 변환 과정 분석 권장.
+
+---
+
+### 9. 관련 코드 위치 요약
 
 | 역할 | 파일 | 주요 함수 |
 |------|------|-----------|
@@ -579,7 +715,7 @@ mkdir -p ./exploration-notes
 
 ---
 
-### 9. 의문점 및 추가 탐구
+### 10. 의문점 및 추가 탐구
 
 - [ ] [의문점 1]
 - [ ] [의문점 2]
